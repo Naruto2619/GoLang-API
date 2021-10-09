@@ -5,6 +5,11 @@
 
 ## Features:
 
+1. Generated Endpoints
+2. Password Encrypted to avoid reverse engineering
+3. Server is thread safe
+4. Pagination added to list endpoint
+
 ### POST request to /users
 
 Create a user object using name, email and password fields.
@@ -31,3 +36,9 @@ Get any post using the post ID.
 
 Get all posts of any user using the user's ID.
 ![alt](./Readme/UserPosts.PNG)
+
+
+### Unit Testing
+
+Unit Testing results for all 5 api requests
+![alt](./Readme/UnitTest.PNG)
