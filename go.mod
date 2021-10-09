@@ -2,6 +2,8 @@ module Appointy
 
 go 1.17
 
+require github.com/joho/godotenv v1.4.0
+
 require (
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect

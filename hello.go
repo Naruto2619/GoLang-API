@@ -1,17 +1,20 @@
 package main
 
 import (
+	"Appointy/helper"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var client *mongo.Client
@@ -35,7 +38,17 @@ func CreateUser(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	var U1 User
 	_ = json.NewDecoder(request.Body).Decode(&U1)
-	var collection = ConnectDBuser()
+	key, err := helper.GenerateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	encPass, err := helper.Encrypt(key, []byte(U1.Password))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ciphertext: %s\n", hex.EncodeToString(encPass))
+	U1.Password = hex.EncodeToString(encPass)
+	var collection = helper.ConnectDBuser()
 	result, er := collection.InsertOne(context.TODO(), U1)
 	if er != nil {
 		fmt.Println(er)
@@ -43,31 +56,15 @@ func CreateUser(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
-type ErrorResponse struct {
-	StatusCode   int    `json:"status"`
-	ErrorMessage string `json:"message"`
-}
-
-func GetError(err error, w http.ResponseWriter) {
-
-	log.Fatal(err.Error())
-	var response = ErrorResponse{
-		ErrorMessage: err.Error(),
-		StatusCode:   http.StatusInternalServerError,
-	}
-	message, _ := json.Marshal(response)
-	w.WriteHeader(response.StatusCode)
-	w.Write(message)
-}
 func GetUser(response http.ResponseWriter, request *http.Request) {
-	var id2 = request.URL.Query().Get("id")
-	id, _ := primitive.ObjectIDFromHex(id2)
+	var urlid = strings.TrimPrefix(request.URL.Path, "/user/")
+	id, _ := primitive.ObjectIDFromHex(urlid)
 	response.Header().Set("content-type", "application/json")
 	var users []User
-	var collection = ConnectDBuser()
+	var collection = helper.ConnectDBuser()
 	cur, err := collection.Find(context.TODO(), bson.M{"_id": id})
 	if err != nil {
-		GetError(err, response)
+		helper.GetError(err, response)
 		return
 	}
 	defer cur.Close(context.TODO())
@@ -93,7 +90,8 @@ func CreatePost(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	var P1 Post
 	_ = json.NewDecoder(request.Body).Decode(&P1)
-	var collection = ConnectDBpost()
+	P1.Timestamp = time.Now().String()
+	var collection = helper.ConnectDBpost()
 	result, er := collection.InsertOne(context.TODO(), P1)
 	if er != nil {
 		fmt.Println(er)
@@ -101,14 +99,14 @@ func CreatePost(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 func GetPost(response http.ResponseWriter, request *http.Request) {
-	var id2 = request.URL.Query().Get("id")
-	id, _ := primitive.ObjectIDFromHex(id2)
+	var urlid = strings.TrimPrefix(request.URL.Path, "/posts/") // get id from http params
+	id, _ := primitive.ObjectIDFromHex(urlid)                   // convert id from string to primitive type
 	response.Header().Set("content-type", "application/json")
 	var posts []Post
-	var collection = ConnectDBpost()
-	cur, err := collection.Find(context.TODO(), bson.M{"_id": id})
+	var collection = helper.ConnectDBpost()
+	cur, err := collection.Find(context.TODO(), bson.M{"_id": id}) //fetch posts filtering based on user id
 	if err != nil {
-		GetError(err, response)
+		helper.GetError(err, response)
 		return
 	}
 	defer cur.Close(context.TODO())
@@ -129,14 +127,18 @@ func GetPost(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(posts)
 }
 func UserPost(response http.ResponseWriter, request *http.Request) {
-
-	var id2 = request.URL.Query().Get("userid")
+	var userid = strings.TrimPrefix(request.URL.Path, "/posts/user/") // get id from http params
+	var limitstr = request.URL.Query().Get("limit")
+	limit, err := strconv.ParseInt(limitstr, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
 	response.Header().Set("content-type", "application/json")
 	var posts []Post
-	var collection = ConnectDBpost()
-	cur, err := collection.Find(context.TODO(), bson.M{"User_id": id2})
+	var collection = helper.ConnectDBpost()
+	cur, err := collection.Find(context.TODO(), bson.M{"User_id": userid}) //fetch posts filtering based on user id
 	if err != nil {
-		GetError(err, response)
+		helper.GetError(err, response)
 		return
 	}
 	defer cur.Close(context.TODO())
@@ -154,16 +156,10 @@ func UserPost(response http.ResponseWriter, request *http.Request) {
 	if err := cur.Err(); err != nil {
 		log.Fatal(err)
 	}
-	json.NewEncoder(response).Encode(posts)
-}
-
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the HomePage!")
-	fmt.Println("Endpoint Hit: homePage")
+	json.NewEncoder(response).Encode(posts[:limit])
 }
 
 func handleRequests() {
-	http.HandleFunc("/", homePage)
 	http.HandleFunc("/user", CreateUser)
 	http.HandleFunc("/user/", GetUser)
 	http.HandleFunc("/posts", CreatePost)
@@ -174,32 +170,7 @@ func handleRequests() {
 		panic(err)
 	}
 }
-func ConnectDBuser() *mongo.Collection {
-	// Set client options
-	clientOptions := options.Client().ApplyURI(os.Getenv("API_KEY"))
-	// Connect to MongoDB
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Connected to MongoDB!")
-	collection := client.Database("mydb").Collection("instauser")
-	return collection
-}
-func ConnectDBpost() *mongo.Collection {
-	// Set client optionss
-	clientOptions := options.Client().ApplyURI("mongodb+srv://siddharth:Naruto2619*@cluster0.gqdbh.mongodb.net/mydb?retryWrites=true&w=majority")
-	// Connect to MongoDB
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Connected to MongoDB!")
-	collection := client.Database("mydb").Collection("instapost")
-	return collection
-}
 
 func main() {
-	fmt.Println("Hello nigga")
 	handleRequests()
 }
