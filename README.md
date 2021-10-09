@@ -5,10 +5,20 @@
 
 ## Features:
 
-1. Generated Endpoints
-2. Password Encrypted to avoid reverse engineering
+1. Generated Endpoints:
+    Get User
+    Create User
+    Create Post
+    Get Post
+    List User Posts
+2. Password Encrypted to avoid reverse engineering:
+    Encryption using Cypher and dynamically generated key
 3. Server is thread safe
-4. Pagination added to list endpoint
+4. Pagination added to list endpoint:
+    Limit parameter set to limit the number of posts retrieved
+5. Unit Testing done using go lang testing:
+    Passed all 5 unit test parameters
+
 
 ### POST request to /users
 
