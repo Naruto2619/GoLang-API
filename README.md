@@ -11,7 +11,7 @@ Create a user object using name, email and password fields.
 Password field is hashed and sent to mongo backend.
 ![alt](./Readme/CreateUser.PNG)
 
-### GET request to /users/?id
+### GET request to /users/id
 
 Get any user object using the user's ID
 ![alt](./Readme/GetUsers.PNG)
@@ -22,12 +22,12 @@ Create a post object using caption, image URL and userID.
 A server side timestamp is generated for the post.
 ![alt](./Readme/CreatePosts.PNG)
 
-### GET request to /posts/?id
+### GET request to /posts/id
 
 Get any post using the post ID.
 ![alt](./Readme/GetPosts.PNG)
 
-### GET request to /posts/users/?id?lim
+### GET request to /posts/users/id?limit
 
 Get all posts of any user using the user's ID.
-![alt](./Readme/UserpPosts.PNG)
+![alt](./Readme/UserPosts.PNG)
